@@ -2,14 +2,15 @@ name: Atualizar Métricas do README
 
 on:
   schedule:
+    # Roda todos os dias à 0h UTC
     - cron: '0 0 * * *' 
   workflow_dispatch:
 
 jobs:
   github-metrics:
     runs-on: ubuntu-latest
-    permissions: # Garante permissão de escrita
-      contents: write
+    permissions:
+      contents: write # 1. Permissão de escrita para o commit
     steps:
       - uses: actions/checkout@v4
 
@@ -19,13 +20,13 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
           user: gabrieltabosa
           
-          
-          markdown: yes 
-          
+          # 2. Configurações de Saída:
           filename: README.md
+          markdown: yes 
+          output_action: commit # 3. Força o commit da alteração no README
           template: classic
 
-          # CONFIGURAÇÕES DO DASHBOARD:
+          # 4. Configurações dos Plugins (Sem Alteração):
           plugin_isocalendar: yes
           plugin_isocalendar_duration: full-year
           plugin_languages: yes
