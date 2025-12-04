@@ -1,37 +1,43 @@
-name: Atualizar Estatísticas do README
+name: Atualizar Métricas do README
 
 on:
   schedule:
-    # Executa a cada 24 horas (meia-noite UTC)
-    - cron: '0 0 * * *'
+    # Roda todos os dias à 0h UTC (ajuste o cron se necessário)
+    - cron: '0 0 * * *' 
   workflow_dispatch:
-    # Permite execução manual pelo painel "Actions"
+    # Permite execução manual a qualquer momento
 
 jobs:
-  build:
+  github-metrics:
     runs-on: ubuntu-latest
-    name: Atualiza o README com a Atividade Recente
     steps:
-      - uses: actions/checkout@v4 # 1. Faz o checkout do código
+      - uses: actions/checkout@v4 # 1. Garante que a Action tenha o código atual
 
-      - uses: gautamkrishnar/code-metrics-action@v1 # 2. O Action mágico
+      - name: Geração de Cartão de Estatísticas (Commits e Linguagens)
+        uses: lowlighter/metrics@latest
         with:
-          # TOKEN OBRIGATÓRIO (USANDO O SEGREDO CRIADO)
-          token: ${{ secrets.GH_TOKEN }} 
+          # 2. O token de segurança
+          token: ${{ secrets.GH_TOKEN }}
           
-          # PARÂMETROS PARA INCLUIR DADOS DE COMMITS/ATIVIDADES:
+          # 3. Usuário a ser rastreado (seu próprio usuário)
+          user: gabrieltabosa
           
-          # Habilita o rastreamento das atividades do GitHub (commits, etc.)
-          plugin_activity: yes 
-          # Quantidade máxima de atividades a serem mostradas
-          plugin_activity_limit: 5
-          # Quais repositórios rastrear (inclui privados se o token permitir)
-          plugin_activity_filter: all
+          # 4. Configurações de saída
+          filename: README.md # O arquivo para onde o conteúdo será gravado
+          output_fmt: markdown # Formato de saída, neste caso, insere em Markdown
+          template: classic # Estilo visual do dashboard
+
+          # 5. CONFIGURAÇÕES DO DASHBOARD:
           
-          # PARÂMETROS PARA INCLUIR ESTATÍSTICAS DE LINGUAGEM:
-          
-          # Habilita o rastreamento de linguagens
-          plugin_languages: yes 
-          # Opções de layout e display
-          plugin_languages_skipped: 'html, css' # Opcional: Oculta linguagens menos importantes
-          plugin_languages_sections: most-used # Mostra o gráfico de pizza
+          # Exibe o calendário de commits (dashboard visual de atividade)
+          plugin_isocalendar: yes
+          plugin_isocalendar_duration: full-year
+
+          # Exibe o card de linguagens (Tecnologias em Porcentagem)
+          plugin_languages: yes
+          # Detalha o tamanho em bytes e a porcentagem
+          plugin_languages_details: bytes-size, percentage
+          # Oculta linguagens com menos de 0% (ou seja, todas as outras)
+          plugin_languages_threshold: 0% 
+          # Limita a 8 as linguagens exibidas
+          plugin_languages_limit: 8
