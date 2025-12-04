@@ -1,0 +1,37 @@
+name: Atualizar Estatísticas do README
+
+on:
+  schedule:
+    # Executa a cada 24 horas (meia-noite UTC)
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    # Permite execução manual pelo painel "Actions"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Atualiza o README com a Atividade Recente
+    steps:
+      - uses: actions/checkout@v4 # 1. Faz o checkout do código
+
+      - uses: gautamkrishnar/code-metrics-action@v1 # 2. O Action mágico
+        with:
+          # TOKEN OBRIGATÓRIO (USANDO O SEGREDO CRIADO)
+          token: ${{ secrets.GH_TOKEN }} 
+          
+          # PARÂMETROS PARA INCLUIR DADOS DE COMMITS/ATIVIDADES:
+          
+          # Habilita o rastreamento das atividades do GitHub (commits, etc.)
+          plugin_activity: yes 
+          # Quantidade máxima de atividades a serem mostradas
+          plugin_activity_limit: 5
+          # Quais repositórios rastrear (inclui privados se o token permitir)
+          plugin_activity_filter: all
+          
+          # PARÂMETROS PARA INCLUIR ESTATÍSTICAS DE LINGUAGEM:
+          
+          # Habilita o rastreamento de linguagens
+          plugin_languages: yes 
+          # Opções de layout e display
+          plugin_languages_skipped: 'html, css' # Opcional: Oculta linguagens menos importantes
+          plugin_languages_sections: most-used # Mostra o gráfico de pizza
