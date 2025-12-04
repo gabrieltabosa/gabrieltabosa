@@ -2,42 +2,33 @@ name: Atualizar Métricas do README
 
 on:
   schedule:
-    # Roda todos os dias à 0h UTC (ajuste o cron se necessário)
     - cron: '0 0 * * *' 
   workflow_dispatch:
-    # Permite execução manual a qualquer momento
 
 jobs:
   github-metrics:
     runs-on: ubuntu-latest
+    permissions: # Garante permissão de escrita
+      contents: write
     steps:
-      - uses: actions/checkout@v4 # 1. Garante que a Action tenha o código atual
+      - uses: actions/checkout@v4
 
       - name: Geração de Cartão de Estatísticas (Commits e Linguagens)
         uses: lowlighter/metrics@latest
         with:
-          # 2. O token de segurança
           token: ${{ secrets.GH_TOKEN }}
-          
-          # 3. Usuário a ser rastreado (seu próprio usuário)
           user: gabrieltabosa
           
-          # 4. Configurações de saída
-          filename: README.md # O arquivo para onde o conteúdo será gravado
-          output_fmt: markdown # Formato de saída, neste caso, insere em Markdown
-          template: classic # Estilo visual do dashboard
-
-          # 5. CONFIGURAÇÕES DO DASHBOARD:
           
-          # Exibe o calendário de commits (dashboard visual de atividade)
+          markdown: yes 
+          
+          filename: README.md
+          template: classic
+
+          # CONFIGURAÇÕES DO DASHBOARD:
           plugin_isocalendar: yes
           plugin_isocalendar_duration: full-year
-
-          # Exibe o card de linguagens (Tecnologias em Porcentagem)
           plugin_languages: yes
-          # Detalha o tamanho em bytes e a porcentagem
           plugin_languages_details: bytes-size, percentage
-          # Oculta linguagens com menos de 0% (ou seja, todas as outras)
           plugin_languages_threshold: 0% 
-          # Limita a 8 as linguagens exibidas
           plugin_languages_limit: 8
