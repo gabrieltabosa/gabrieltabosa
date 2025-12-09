@@ -3,33 +3,91 @@ name: Atualizar Métricas do README
 on:
   schedule:
     # Roda todos os dias à 0h UTC
-    - cron: '0 0 * * *' 
+    - cron: '0 0 * * *'
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   github-metrics:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write # 1. Permissão de escrita para o commit
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: Criar pasta de saída
+        run: mkdir -p generated
 
       - name: Geração de Cartão de Estatísticas (Commits e Linguagens)
         uses: lowlighter/metrics@latest
         with:
-          token: ${{ secrets.GH_TOKEN }}
+          # Use o GITHUB_TOKEN padrão do Actions (já disponível)
+          token: ${{ secrets.GITHUB_TOKEN }}
           user: gabrieltabosa
-          
-          # 2. Configurações de Saída:
-          filename: README.md
-          markdown: yes 
-          output_action: commit # 3. Força o commit da alteração no README
+          # Gerar para ficheiro temporário para que possamos montar o README depois
+          filename: generated/metrics.md
+          markdown: yes
+          output_action: none
           template: classic
-
-          # 4. Configurações dos Plugins (Sem Alteração):
           plugin_isocalendar: yes
           plugin_isocalendar_duration: full-year
           plugin_languages: yes
           plugin_languages_details: bytes-size, percentage
-          plugin_languages_threshold: 0% 
+          plugin_languages_threshold: 0%
           plugin_languages_limit: 8
+
+      - name: Montar README final com Tecnologias + Métricas
+        run: |
+          set -e
+
+          # --- Ajuste aqui a bio e as tecnologias que quer mostrar ---
+          cat > generated/header.md <<'EOF'
+# Gabriel Tabosa 👋
+
+Desenvolvedor de software | Backend (.NET) & DevOps  
+Atualmente trabalhando com APIs, automação e infraestrutura.
+
+## 🛠 Tecnologias
+- **Linguagens:** C#, JavaScript, Python
+- **Backend:** .NET, ASP.NET Core, Entity Framework
+- **DevOps / Infra:** Docker, GitHub Actions, CI/CD, Azure
+- **Banco de dados:** SQL Server, PostgreSQL
+EOF
+          # ----------------------------------------------------------
+
+          # Verifica se o arquivo de métricas foi gerado; se não, cria um placeholder
+          if [ ! -s generated/metrics.md ]; then
+            echo "<!-- metrics not generated -->" > generated/metrics.md
+            echo "" >> generated/metrics.md
+            echo "_Nenhuma métrica foi gerada (ver workflow)._ " >> generated/metrics.md
+          fi
+
+          # Monta o README final: header + conteúdo do metrics.md
+          cat generated/header.md > README.md
+          echo "" >> README.md
+          echo "---" >> README.md
+          echo "" >> README.md
+          cat generated/metrics.md >> README.md
+
+          # Mostrar preview (para logs)
+          echo "===== README gerado ====="
+          sed -n '1,200p' README.md || true
+
+      - name: Commit e push (se houver alterações)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md generated/metrics.md || true
+          if git diff --cached --quiet; then
+            echo "Sem alterações para commitar"
+          else
+            git commit -m "chore: atualizar README com métricas e tecnologias"
+            git push
+          fi
+        env:
+          # GITHUB_TOKEN é injetado automaticamente
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
