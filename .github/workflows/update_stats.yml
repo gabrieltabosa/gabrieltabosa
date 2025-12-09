@@ -2,55 +2,90 @@ name: Atualizar Métricas do README
 
 on:
   schedule:
-    - cron: "0 0 * * *"   # Todos os dias às 00h UTC
+    - cron: "0 0 * * *" # Todos os dias à 00h UTC
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   github-metrics:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
 
-      - name: Gerar Métricas
+      - name: Criar pasta de saída
+        run: mkdir -p generated
+
+      - name: Gerar métricas em Markdown puro
         uses: lowlighter/metrics@latest
         with:
-          token: ${{ secrets.GH_TOKEN }}
-
-          # Usuário alvo
+          token: ${{ secrets.GITHUB_TOKEN }}
           user: gabrieltabosa
-
-          # Arquivo gerado
-          filename: generated/overview.svg
-          markdown: no
-          output_action: commit
+          filename: generated/metrics.md
+          markdown: yes           # Markdown puro
+          output_action: none     # NÃO sobrescreve README diretamente
           template: classic
-
-          # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-          #      PLUGINS ATIVADOS
-          # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
-          # 🔥 Atividade semanal / estatísticas (Commits)
-          plugin_activity: yes
-          plugin_activity_visibility: public
-          plugin_activity_days: 14
-
-          # 🔥 Linguagens usadas (todas)
-          plugin_languages: yes
-          plugin_languages_details: bytes-size, percentage
-          plugin_languages_sections: most-used
-          plugin_languages_limit: 20
-          plugin_languages_threshold: 0%
-
-          # 🔥 Calendário ISO (frequência de commits anual)
           plugin_isocalendar: yes
           plugin_isocalendar_duration: full-year
-
-          # 🔥 Lista de tecnologias que você usa
-          plugin_achievements: no
+          plugin_languages: yes
+          plugin_languages_details: bytes-size, percentage
+          plugin_languages_limit: 20
+          plugin_languages_threshold: 0%
           plugin_topics: yes
-          plugin_topics_limit: 0        # mostra todas
-          plugin_topics_mode: icons     # ícones bonitos
+          plugin_topics_limit: 0
+          plugin_topics_mode: icons
+
+      - name: Montar README final
+        run: |
+          set -e
+
+          # ----- CABEÇALHO / BIO / TECNOLOGIAS -----
+          cat > generated/header.md <<'EOF'
+# Gabriel Tabosa 👋
+
+Desenvolvedor apaixonado por backend e DevOps | APIs e boas práticas  
+
+## 🛠 Tecnologias que uso
+- **Linguagens:** C#, F#, TypeScript, JavaScript (Node.js), Python, Java
+- **Frontend:** React, Next.js, HTML, CSS, TailwindCSS, Blazor
+- **Backend / Frameworks:** .NET (ASP.NET Core), Entity Framework, Spring Boot, Express
+- **DevOps / Infra:** Docker, Kubernetes, GitHub Actions, Terraform, Azure, AWS, CI/CD
+- **Banco de dados:** SQL Server, PostgreSQL, MySQL, Redis, MongoDB
+- **Observability / Logs / Monitoring:** Prometheus, Grafana, ELK (Elasticsearch, Logstash, Kibana)
+- **Outros:** Nginx, RabbitMQ, Kafka, gRPC, REST, OAuth2, Helm
+EOF
+
+          # Se metrics.md não existir, cria placeholder
+          if [ ! -s generated/metrics.md ]; then
+            echo "<!-- metrics not generated -->" > generated/metrics.md
+            echo "_Nenhuma métrica foi gerada (ver workflow)._ " >> generated/metrics.md
+          fi
+
+          # Monta README final
+          {
+            cat generated/header.md
+            echo ""
+            echo "---"
+            echo ""
+            cat generated/metrics.md
+          } > README.md
+
+      - name: Commit e push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md generated/metrics.md || true
+          if git diff --cached --quiet; then
+            echo "Sem alterações para commitar"
+          else
+            git commit -m "chore: atualizar README com métricas e tecnologias"
+            git push
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
