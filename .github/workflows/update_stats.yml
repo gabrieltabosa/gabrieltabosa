@@ -23,8 +23,8 @@ jobs:
           user: gabrieltabosa
 
           # Arquivo gerado
-          filename: README.md
-          markdown: yes
+          filename: generated/overview.svg
+          markdown: no
           output_action: commit
           template: classic
 
