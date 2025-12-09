@@ -25,10 +25,8 @@ jobs:
       - name: Geração de Cartão de Estatísticas (Commits e Linguagens)
         uses: lowlighter/metrics@latest
         with:
-          # Use o GITHUB_TOKEN padrão do Actions (já disponível)
           token: ${{ secrets.GITHUB_TOKEN }}
           user: gabrieltabosa
-          # Gerar para ficheiro temporário para que possamos montar o README depois
           filename: generated/metrics.md
           markdown: yes
           output_action: none
@@ -38,56 +36,106 @@ jobs:
           plugin_languages: yes
           plugin_languages_details: bytes-size, percentage
           plugin_languages_threshold: 0%
-          plugin_languages_limit: 8
+          plugin_languages_limit: 12
 
-      - name: Montar README final com Tecnologias + Métricas
+      - name: Montar README final com Tecnologias + Métricas + Frequência de Commits
         run: |
           set -e
 
-          # --- Ajuste aqui a bio e as tecnologias que quer mostrar ---
+          # ----- CABEÇALHO / BIO / TECNOLOGIAS -----
           cat > generated/header.md <<'EOF'
 # Gabriel Tabosa 👋
 
 Desenvolvedor de software | Backend (.NET) & DevOps  
 Atualmente trabalhando com APIs, automação e infraestrutura.
 
-## 🛠 Tecnologias
-- **Linguagens:** C#, JavaScript, Python
-- **Backend:** .NET, ASP.NET Core, Entity Framework
-- **DevOps / Infra:** Docker, GitHub Actions, CI/CD, Azure
-- **Banco de dados:** SQL Server, PostgreSQL
+## 🛠 Tecnologias que uso
+- **Linguagens:** C#, F#, TypeScript, JavaScript (Node.js), Python, Java
+- **Frontend:** React, Next.js, HTML, CSS, TailwindCSS, Blazor
+- **Backend / Frameworks:** .NET (ASP.NET Core), Entity Framework, Spring Boot, Express
+- **DevOps / Infra:** Docker, Kubernetes, GitHub Actions, Terraform, Azure, AWS, CI/CD
+- **Banco de dados:** SQL Server, PostgreSQL, MySQL, Redis, MongoDB
+- **Observability / Logs / Monitoring:** Prometheus, Grafana, ELK (Elasticsearch, Logstash, Kibana)
+- **Outros:** Nginx, RabbitMQ, Kafka, gRPC, REST, OAuth2, Redis, Helm
 EOF
-          # ----------------------------------------------------------
+          # ------------------------------------------
 
-          # Verifica se o arquivo de métricas foi gerado; se não, cria um placeholder
+          # Se metrics.md não existir ou estiver vazio, cria placeholder
           if [ ! -s generated/metrics.md ]; then
             echo "<!-- metrics not generated -->" > generated/metrics.md
             echo "" >> generated/metrics.md
             echo "_Nenhuma métrica foi gerada (ver workflow)._ " >> generated/metrics.md
           fi
 
-          # Monta o README final: header + conteúdo do metrics.md
-          cat generated/header.md > README.md
-          echo "" >> README.md
-          echo "---" >> README.md
-          echo "" >> README.md
-          cat generated/metrics.md >> README.md
+          # ----- EXTRACAO HEURISTICA DE "COMMITS" -----
+          # Tenta extrair um número associado a "commit(s)" no generated/metrics.md
+          # Procuramos por linhas contendo 'commit' (case-insensitive) e extraímos o primeiro número que aparecer na linha.
+          COMMIT_COUNT_LINE=$(grep -iE 'commit' generated/metrics.md | head -n 1 || true)
+          if [ -n "$COMMIT_COUNT_LINE" ]; then
+            COMMIT_COUNT=$(echo "$COMMIT_COUNT_LINE" | grep -Eo '[0-9]+' | head -n1 || echo "0")
+          else
+            # fallback: tenta achar número total de commits no arquivo (qualquer número grande)
+            COMMIT_COUNT=$(grep -Eo '[0-9]{1,6}' generated/metrics.md | head -n1 || echo "0")
+          fi
+          # Se ainda vazio, define 0
+          if [ -z "$COMMIT_COUNT" ]; then
+            COMMIT_COUNT=0
+          fi
 
-          # Mostrar preview (para logs)
-          echo "===== README gerado ====="
-          sed -n '1,200p' README.md || true
+          # ----- CALCULA STATUS (HEURÍSTICA) -----
+          # Ajuste as faixas conforme preferir
+          if [ "$COMMIT_COUNT" -ge 100 ]; then
+            STATUS_EMOJI="🔥"
+            STATUS_TEXT="Muito ativo"
+          elif [ "$COMMIT_COUNT" -ge 30 ]; then
+            STATUS_EMOJI="✅"
+            STATUS_TEXT="Ativo"
+          elif [ "$COMMIT_COUNT" -ge 7 ]; then
+            STATUS_EMOJI="⚠️"
+            STATUS_TEXT="Moderado"
+          else
+            STATUS_EMOJI="⏳"
+            STATUS_TEXT="Pouco ativo"
+          fi
+
+          # ----- MONTA O BLOCO DE STATUS -----
+          cat > generated/commit_status.md <<EOF
+## 📈 Frequência de commits (heurística)
+
+**Status:** ${STATUS_EMOJI} **${STATUS_TEXT}**  
+**Commits (valor extraído das métricas):** **${COMMIT_COUNT}**
+
+> Observação: o número acima foi extraído automaticamente do relatório de métricas gerado pelo workflow. Dependendo do formato das métricas, a extração é heurística; se quiser um cálculo mais preciso (por exemplo, commits nos últimos 30 dias), posso ajustar o script para usar a API do GitHub com um token pessoal.
+EOF
+
+          # ----- MONTA O README FINAL -----
+          {
+            cat generated/header.md
+            echo ""
+            echo "---"
+            echo ""
+            cat generated/commit_status.md
+            echo ""
+            echo "---"
+            echo ""
+            cat generated/metrics.md
+          } > README.md
+
+          # Preview para logs
+          echo "===== README gerado (preview) ====="
+          sed -n '1,240p' README.md || true
 
       - name: Commit e push (se houver alterações)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add README.md generated/metrics.md || true
+          git add README.md generated/metrics.md generated/commit_status.md || true
           if git diff --cached --quiet; then
             echo "Sem alterações para commitar"
           else
-            git commit -m "chore: atualizar README com métricas e tecnologias"
+            git commit -m "chore: atualizar README com métricas, tecnologias e status de commits"
             git push
           fi
         env:
-          # GITHUB_TOKEN é injetado automaticamente
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
